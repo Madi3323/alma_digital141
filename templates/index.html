@@ -4,19 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alma Digital — Цифровые решения</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Flask-safe static paths -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body class="page-home">
 
   <!-- NAV -->
   <nav class="nav" id="nav">
     <a href="/" class="nav__logo">Alma<span>Digital</span></a>
+
     <button class="nav__burger" id="navBurger" aria-label="Меню">
       <span></span><span></span><span></span>
     </button>
+
     <ul class="nav__links" id="navLinks">
       <li><a href="/">Главная</a></li>
       <li><a href="/news">Новости</a></li>
@@ -31,18 +37,23 @@
       <div class="hero__blob blob-2"></div>
       <div class="hero__grid"></div>
     </div>
+
     <div class="hero__content">
       <p class="hero__eyebrow">Платформа нового поколения</p>
-      <h1 class="hero__title">Alma<br /><em>Digital</em></h1>
+
+      <h1 class="hero__title">Alma<br><em>Digital</em></h1>
+
       <p class="hero__desc">
-        Полный стек цифровых инструментов для бизнеса.<br />
+        Полный стек цифровых инструментов для бизнеса.<br>
         API, аналитика, автоматизация — в одной платформе.
       </p>
+
       <div class="hero__cta">
         <a href="/cabinet" class="btn btn--primary">Начать бесплатно</a>
         <a href="/news" class="btn btn--ghost">Читать новости</a>
       </div>
     </div>
+
     <div class="hero__stats">
       <div class="stat"><span class="stat__num">12K+</span><span class="stat__label">Клиентов</span></div>
       <div class="stat"><span class="stat__num">99.9%</span><span class="stat__label">Uptime</span></div>
@@ -54,69 +65,75 @@
   <section class="features">
     <div class="container">
       <h2 class="section-title">Что внутри</h2>
+
       <div class="features__grid">
         <div class="feature-card">
           <div class="feature-card__icon">⚡</div>
           <h3>REST API</h3>
-          <p>Готовый API для интеграции любых сервисов. Документация и SDK включены.</p>
+          <p>Готовый API для интеграции любых сервисов.</p>
         </div>
+
         <div class="feature-card">
           <div class="feature-card__icon">📊</div>
           <h3>Аналитика</h3>
-          <p>Дашборд с реальными данными. Отслеживайте метрики в режиме реального времени.</p>
+          <p>Дашборд с реальными данными в реальном времени.</p>
         </div>
+
         <div class="feature-card">
           <div class="feature-card__icon">🔐</div>
           <h3>Безопасность</h3>
-          <p>Шифрование, сессии, токены. Ваши данные защищены по стандартам enterprise.</p>
+          <p>Шифрование, токены и защищённые сессии.</p>
         </div>
+
         <div class="feature-card">
           <div class="feature-card__icon">🎮</div>
           <h3>Tetris</h3>
-          <p>Потому что работа должна быть в удовольствие. Мини-игра прямо в кабинете.</p>
+          <p>Мини-игра прямо в кабинете пользователя.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- TARIFFS -->
+  <!-- TARIFS -->
   <section class="tariffs">
     <div class="container">
       <h2 class="section-title">Тарифы</h2>
+
       <div class="tariffs__grid">
+
         <div class="tariff-card">
           <div class="tariff-card__name">Free</div>
           <div class="tariff-card__price">0 ₸</div>
-          <ul class="tariff-card__features">
+          <ul>
             <li>100 запросов/мес</li>
             <li>Базовый кабинет</li>
-            <li>Email поддержка</li>
           </ul>
           <a href="/cabinet" class="btn btn--ghost btn--sm">Начать</a>
         </div>
+
         <div class="tariff-card tariff-card--pro">
           <div class="tariff-card__badge">Популярный</div>
           <div class="tariff-card__name">Pro</div>
           <div class="tariff-card__price">4 990 ₸</div>
-          <ul class="tariff-card__features">
-            <li>5 000 запросов/мес</li>
-            <li>Приоритетная очередь</li>
-            <li>24/7 поддержка</li>
-            <li>Вебхуки</li>
+          <ul>
+            <li>5000 запросов</li>
+            <li>Приоритет</li>
+            <li>Поддержка</li>
           </ul>
           <a href="/cabinet" class="btn btn--primary btn--sm">Подключить</a>
         </div>
+
         <div class="tariff-card">
           <div class="tariff-card__name">Elite</div>
           <div class="tariff-card__price">14 990 ₸</div>
-          <ul class="tariff-card__features">
+          <ul>
             <li>Безлимит</li>
-            <li>Выделенный сервер</li>
             <li>SLA 99.99%</li>
             <li>Персональный менеджер</li>
           </ul>
           <a href="/cabinet" class="btn btn--ghost btn--sm">Выбрать</a>
         </div>
+
       </div>
     </div>
   </section>
@@ -125,10 +142,11 @@
   <footer class="footer">
     <div class="container footer__inner">
       <a href="/" class="nav__logo">Alma<span>Digital</span></a>
-      <p class="footer__copy">© 2025 Alma Digital. Все права защищены.</p>
+      <p>© 2025 Alma Digital</p>
     </div>
   </footer>
 
-  <script src="/static/script.js"></script>
+  <!-- JS (Flask-safe) -->
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
