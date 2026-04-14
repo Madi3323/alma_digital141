@@ -1,114 +1,90 @@
 """
-Alma Digital — Production Flask Backend
-Stable, clean, Railway-ready.
+Alma Digital — FIXED Production Flask Backend (Railway-ready)
 """
 
 import os
 import sqlite3
 import hashlib
 import secrets
-import json
 from datetime import datetime, timedelta
 from functools import wraps
 
-from flask import (
-    Flask, render_template, request, jsonify,
-    session, send_from_directory
-)
+from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 
-# ─── App Setup ────────────────────────────────────────────────────────────────
+# ─── APP ─────────────────────────────────────────────
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
+
+app.secret_key = os.environ.get("SECRET_KEY", "dev_secret_key")
+
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 
 CORS(app, supports_credentials=True)
 
-# ─── Database ─────────────────────────────────────────────────────────────────
+# ─── PATH FIX (ВАЖНО ДЛЯ RAILWAY) ───────────────────
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "data", "alma.db")
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "alma.db")
+TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
 
+app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
+
+# ─── DB ──────────────────────────────────────────────
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
 
 def init_db():
     with get_db() as conn:
         conn.executescript("""
-            CREATE TABLE IF NOT EXISTS users (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                email     TEXT UNIQUE NOT NULL,
-                password  TEXT NOT NULL,
-                name      TEXT NOT NULL,
-                tariff    TEXT DEFAULT 'free',
-                created   TEXT DEFAULT (datetime('now'))
-            );
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            password TEXT,
+            name TEXT,
+            tariff TEXT DEFAULT 'free',
+            created TEXT DEFAULT CURRENT_TIMESTAMP
+        );
 
-            CREATE TABLE IF NOT EXISTS orders (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id     INTEGER NOT NULL REFERENCES users(id),
-                title       TEXT NOT NULL,
-                status      TEXT DEFAULT 'pending',
-                amount      REAL DEFAULT 0,
-                created     TEXT DEFAULT (datetime('now'))
-            );
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            title TEXT,
+            status TEXT DEFAULT 'pending',
+            created TEXT DEFAULT CURRENT_TIMESTAMP
+        );
 
-            CREATE TABLE IF NOT EXISTS news (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                title    TEXT NOT NULL,
-                body     TEXT NOT NULL,
-                created  TEXT DEFAULT (datetime('now'))
-            );
+        CREATE TABLE IF NOT EXISTS news (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            body TEXT,
+            created TEXT DEFAULT CURRENT_TIMESTAMP
+        );
         """)
-        # Seed demo news if empty
-        cur = conn.execute("SELECT COUNT(*) FROM news")
-        if cur.fetchone()[0] == 0:
-            conn.executemany(
-                "INSERT INTO news (title, body) VALUES (?, ?)",
-                [
-                    ("Alma Digital запущен!", "Мы рады приветствовать первых пользователей платформы."),
-                    ("Новый тариф Pro", "Подключите Pro и получите расширенный доступ ко всем инструментам."),
-                    ("Обновление API v2", "Новая версия API доступна для интеграции."),
-                ]
-            )
 
+# ─── AUTH HELPERS ───────────────────────────────────
 
-# ─── Auth Helpers ─────────────────────────────────────────────────────────────
-
-def hash_pw(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+def hash_pw(p):
+    return hashlib.sha256(p.encode()).hexdigest()
 
 
 def login_required(f):
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def wrapper(*args, **kwargs):
         if "user_id" not in session:
-            return jsonify({"error": "Unauthorized"}), 401
+            return jsonify({"error": "unauthorized"}), 401
         return f(*args, **kwargs)
-    return decorated
+    return wrapper
 
 
-def current_user():
-    uid = session.get("user_id")
-    if not uid:
-        return None
-    with get_db() as conn:
-        row = conn.execute(
-            "SELECT id, email, name, tariff, created FROM users WHERE id=?", (uid,)
-        ).fetchone()
-    return dict(row) if row else None
-
-
-# ─── Page Routes ──────────────────────────────────────────────────────────────
+# ─── PAGES ───────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -121,62 +97,59 @@ def cabinet():
 
 
 @app.route("/news")
-def news_page():
+def news():
     return render_template("news.html")
 
 
-# ─── Auth API ─────────────────────────────────────────────────────────────────
+# ─── AUTH API ────────────────────────────────────────
 
 @app.route("/api/register", methods=["POST"])
 def register():
-    data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-    name = (data.get("name") or "").strip()
+    data = request.get_json() or {}
+
+    email = data.get("email", "").lower().strip()
+    password = data.get("password", "")
+    name = data.get("name", "")
 
     if not email or not password or not name:
-        return jsonify({"error": "Заполните все поля"}), 400
-    if len(password) < 6:
-        return jsonify({"error": "Пароль минимум 6 символов"}), 400
+        return jsonify({"error": "fill all fields"}), 400
 
     try:
         with get_db() as conn:
             cur = conn.execute(
-                "INSERT INTO users (email, password, name) VALUES (?, ?, ?)",
+                "INSERT INTO users(email, password, name) VALUES(?,?,?)",
                 (email, hash_pw(password), name)
             )
-            user_id = cur.lastrowid
-            # Seed demo order
+            uid = cur.lastrowid
             conn.execute(
-                "INSERT INTO orders (user_id, title, status, amount) VALUES (?, ?, ?, ?)",
-                (user_id, "Демо-заявка", "completed", 0)
+                "INSERT INTO orders(user_id, title) VALUES(?,?)",
+                (uid, "Welcome order")
             )
     except sqlite3.IntegrityError:
-        return jsonify({"error": "Email уже используется"}), 409
+        return jsonify({"error": "email exists"}), 409
 
-    session.permanent = True
-    session["user_id"] = user_id
-    return jsonify({"ok": True, "name": name}), 201
+    session["user_id"] = uid
+    return jsonify({"ok": True})
 
 
 @app.route("/api/login", methods=["POST"])
 def login():
-    data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
+    data = request.get_json() or {}
+
+    email = data.get("email", "").lower().strip()
+    password = data.get("password", "")
 
     with get_db() as conn:
-        row = conn.execute(
-            "SELECT id, name FROM users WHERE email=? AND password=?",
+        user = conn.execute(
+            "SELECT * FROM users WHERE email=? AND password=?",
             (email, hash_pw(password))
         ).fetchone()
 
-    if not row:
-        return jsonify({"error": "Неверный email или пароль"}), 401
+    if not user:
+        return jsonify({"error": "wrong credentials"}), 401
 
-    session.permanent = True
-    session["user_id"] = row["id"]
-    return jsonify({"ok": True, "name": row["name"]})
+    session["user_id"] = user["id"]
+    return jsonify({"ok": True})
 
 
 @app.route("/api/logout", methods=["POST"])
@@ -185,75 +158,50 @@ def logout():
     return jsonify({"ok": True})
 
 
+# ─── USER ────────────────────────────────────────────
+
 @app.route("/api/me")
 @login_required
 def me():
-    user = current_user()
-    if not user:
-        return jsonify({"error": "Not found"}), 404
-    return jsonify(user)
+    uid = session["user_id"]
+    with get_db() as conn:
+        user = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    return jsonify(dict(user))
 
 
 @app.route("/api/me/orders")
 @login_required
-def my_orders():
+def orders():
     uid = session["user_id"]
-    page = max(1, int(request.args.get("page", 1)))
-    per_page = 10
-    offset = (page - 1) * per_page
 
     with get_db() as conn:
-        total = conn.execute(
-            "SELECT COUNT(*) FROM orders WHERE user_id=?", (uid,)
-        ).fetchone()[0]
         rows = conn.execute(
-            "SELECT id, title, status, amount, created FROM orders "
-            "WHERE user_id=? ORDER BY id DESC LIMIT ? OFFSET ?",
-            (uid, per_page, offset)
+            "SELECT * FROM orders WHERE user_id=? ORDER BY id DESC",
+            (uid,)
         ).fetchall()
 
-    return jsonify({
-        "orders": [dict(r) for r in rows],
-        "total": total,
-        "page": page,
-        "pages": max(1, -(-total // per_page))
-    })
-
-
-@app.route("/api/me/tariff")
-@login_required
-def my_tariff():
-    user = current_user()
-    tariffs = {
-        "free":  {"name": "Free",  "price": 0,    "requests": 100},
-        "pro":   {"name": "Pro",   "price": 4990, "requests": 5000},
-        "elite": {"name": "Elite", "price": 14990,"requests": -1},
-    }
-    plan = tariffs.get(user["tariff"], tariffs["free"])
-    return jsonify({"current": user["tariff"], "details": plan})
-
-
-@app.route("/api/news")
-def api_news():
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT id, title, body, created FROM news ORDER BY id DESC"
-        ).fetchall()
     return jsonify([dict(r) for r in rows])
 
 
-# ─── Health ───────────────────────────────────────────────────────────────────
+# ─── NEWS ────────────────────────────────────────────
+
+@app.route("/api/news")
+def news_api():
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM news ORDER BY id DESC").fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+# ─── HEALTH ──────────────────────────────────────────
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "ts": datetime.utcnow().isoformat()})
+    return jsonify({"status": "ok"})
 
 
-# ─── Entry Point ──────────────────────────────────────────────────────────────
+# ─── START ───────────────────────────────────────────
 
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV") == "development"
-    print(f"[Alma Digital] Starting on 0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    app.run(host="0.0.0.0", port=port, debug=True)
